@@ -114,7 +114,11 @@ export default function ProfilePage() {
       {activeTab === "achievements" && (
         <div className="grid grid-cols-3 gap-4">
           {achievements.map((achievement) => (
-            <AchievementCard key={achievement.title} achievement={achievement} earned={achievement.key && achievement.threshold ? (userData?.[achievement.key] ?? 0) >= achievement.threshold : false} />
+            <AchievementCard key={achievement.title}
+              icon={achievement.icon}
+              title={achievement.title}
+              desc={achievement.desc}
+              earned={achievement.key && achievement.threshold ? (userData?.[achievement.key] ?? 0) >= achievement.threshold : false}/>
           ))}
         </div>
       )}

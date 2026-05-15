@@ -52,7 +52,6 @@ export function LeaderboardRow({ u, rank, isMe }: { u: any; rank: number; isMe: 
     <div className={`flex items-center gap-4 px-6 py-4 transition ${isMe ? "bg-blue-50" : "hover:bg-gray-50"}`}>
       <div className="flex items-center gap-1">
         <RankBadge rank={rank} />
-        {rank <= 3 && <BadgeIcon rank={rank} />}
       </div>
       <Avatar
         name={u.name}
@@ -65,6 +64,7 @@ export function LeaderboardRow({ u, rank, isMe }: { u: any; rank: number; isMe: 
             {u.name}
           </p>
           {isMe && <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">You</span>}
+          {rank <= 3 && <BadgeIcon rank={rank} />}
         </div>
         <p className="text-xs text-gray-400">{flag} Learning</p>
       </div>
