@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import {
-  BookOpen, Star,
+  BookOpen, Star, TrendingUp,
   Globe, Sun, Moon, Monitor,
   Layers, RotateCcw,
   Check, X, Eye, EyeOff,
@@ -156,6 +156,8 @@ export default function VocabularyPage() {
     return matchCat && matchSearch && matchFilter;
   });
 
+  const avgMastery = Math.round(words.reduce((s, w) => s + w.mastery, 0) / words.length);
+
   const speechLangMap: Record<string, string> = {
     ja: "ja-JP",
     es: "es-ES",
@@ -251,14 +253,22 @@ export default function VocabularyPage() {
       </div>
 
       {/* Stats */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4 max-w-xs">
-        <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: "#eef2ff" }}>
-          <BookOpen size={20} style={{ color: "#4a7cf7" }} />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-gray-800">{words.length}</p>
-          <p className="text-xs text-gray-500">Total Words</p>
-        </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Total Words", value: words.length.toString(), icon: BookOpen, color: "#4a7cf7", bg: "#eef2ff" },
+          { label: "Mastered", value: words.filter((w) => w.mastery >= 80).length.toString(), icon: Star, color: "#34d399", bg: "#ecfdf5" },
+          { label: "Avg. Mastery", value: `${avgMastery}%`, icon: TrendingUp, color: "#f59e0b", bg: "#fffbeb" },
+        ].map(({ label, value, icon: Icon, color, bg }) => (
+          <div key={label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: bg }}>
+              <Icon size={20} style={{ color }} />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-800">{value}</p>
+              <p className="text-xs text-gray-500">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Flashcard mode */}
