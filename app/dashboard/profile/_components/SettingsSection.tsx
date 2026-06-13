@@ -1,8 +1,8 @@
 "use client";
 
-import { doc, updateDoc } from "firebase/firestore";
-import { User, Mail, Shield, Globe, Bell, Palette, ChevronRight, LucideIcon } from "lucide-react";
 import { db } from "@/lib/firebase";
+import { doc, updateDoc } from "firebase/firestore";
+import { User, Mail, Shield, ChevronRight, Bell, type LucideIcon } from "lucide-react";
 
 type SettingsItem = {
   icon: LucideIcon;
@@ -24,14 +24,8 @@ const settingsSections: { title: string; items: SettingsItem[] }[] = [
       { icon: User, label: "Edit Profile", description: "Update your name and email." },
       { icon: Mail, label: "Change Email", description: "Use a different email address." },
       { icon: Shield, label: "Change Password", description: "Protect your account with a new password." },
-    ],
-  },
-  {
-    title: "Preferences",
-    items: [
-      { icon: Globe, label: "Interface Language", description: "Change the app language." },
-      { icon: Bell, label: "Notifications", description: "Receive update alerts in your browser.", type: "toggle" },
-      { icon: Palette, label: "Theme", description: "Switch between light and dark mode." },
+      // Added this item so your toggle branch actually gets rendered!
+      { icon: Bell, label: "Push Notifications", description: "Receive updates when inside your browser.", type: "toggle" },
     ],
   },
 ];

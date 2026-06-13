@@ -13,6 +13,7 @@
     "@prisma/adapter-pg": "^7.5.0",
     "@prisma/client": "^7.8.0",
     "@types/swagger-ui-react": "^5.18.0",
+    "critters": "^0.0.23",
     "dotenv": "^17.3.1",
     "firebase": "^12.10.0",
     "lucide-react": "^0.577.0",

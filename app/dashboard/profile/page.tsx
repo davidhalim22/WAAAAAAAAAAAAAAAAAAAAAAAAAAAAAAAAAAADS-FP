@@ -13,6 +13,19 @@ import { ProfileStats } from "./_components/ProfileStats";
 import { SettingsSection } from "./_components/SettingsSection";
 import { LANGUAGES } from "@/lib/languages";
 
+// Explicitly defining UserData so TypeScript can validate firestore values
+type UserData = {
+  name?: string;
+  email?: string;
+  image?: string;
+  xp?: number;
+  streak?: number;
+  wordsLearned?: number;
+  lessonsCompleted?: number;
+  languageXp?: Record<string, number>;
+  [key: string]: any; // Crucial for dynamic lookups like userData?.[achievement.key]
+};
+
 const achievements = [
   { icon: "🔥", title: "Week Warrior", desc: "7-day streak", key: "streak", threshold: 7 },
   { icon: "📚", title: "Word Hoarder", desc: "1000 words learned", key: "wordsLearned", threshold: 1000 },
@@ -21,19 +34,6 @@ const achievements = [
   { icon: "🌍", title: "Polyglot", desc: "Learn 3 languages", key: null, threshold: null },
   { icon: "👑", title: "Top Learner", desc: "Reach #1 leaderboard", key: null, threshold: null },
 ];
-
-
-type UserData = {
-  name?: string;
-  streak?: number;
-  xp?: number;
-  wordsLearned?: number;
-  lessonsCompleted?: number;
-  languages?: Array<{ flag: string; name: string; level: string; xp: number }>;
-  languageXp?: Record<string, number>;
-  notifications?: { enabled: boolean };
-  [key: string]: unknown;
-};
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -44,7 +44,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!user) return;
     const unsub = onSnapshot(doc(db, "users", user.uid), (snap) => {
-      if (snap.exists()) setUserData(snap.data());
+      if (snap.exists()) setUserData(snap.data() as UserData);
     });
     return () => unsub();
   }, [user]);
@@ -58,7 +58,7 @@ export default function ProfilePage() {
 
   const initials = (user?.displayName ?? user?.email ?? "?")
     .split(" ")
-    .map((w: string) => w[0])
+    .map((w: string) => w)
     .join("")
     .toUpperCase()
     .slice(0, 2);
@@ -102,29 +102,23 @@ export default function ProfilePage() {
       {/* Stats Tab */}
       {activeTab === "stats" && <ProfileStats displayLanguages={displayLanguages} />}
 
-
-
       {/* Achievements Tab */}
       {activeTab === "achievements" && (
         <div className="grid grid-cols-3 gap-4">
           {achievements.map((achievement) => (
-            <AchievementCard key={achievement.title}
+            <AchievementCard
+              key={achievement.title}
               icon={achievement.icon}
               title={achievement.title}
               desc={achievement.desc}
-              earned={achievement.key && achievement.threshold ? Number(userData?.[achievement.key] ?? 0) >= achievement.threshold : false}/>
+              earned={achievement.key && achievement.threshold ? (userData?.[achievement.key] ?? 0) >= achievement.threshold : false}
+            />
           ))}
         </div>
       )}
 
       {/* Settings Tab */}
-      {activeTab === "settings" && (
-        <SettingsSection
-          userId={user?.uid}
-          notifications={userData?.notifications}
-          handleLogout={handleLogout}
-        />
-      )}
+      {activeTab === "settings" && <SettingsSection handleLogout={handleLogout} />}
     </div>
   );
 }

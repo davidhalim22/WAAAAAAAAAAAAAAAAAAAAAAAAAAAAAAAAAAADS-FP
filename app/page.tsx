@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { toast } from "sonner";
 import LoginForm from "@/app/_components/LoginForm";
+import { PublicShell } from "@/components/PublicShell";
 
 export default function LoginPage() {
   useEffect(() => {
@@ -12,5 +13,12 @@ export default function LoginPage() {
     }
   }, []);
 
-  return <LoginForm />;
+  return (
+    <PublicShell
+      title="Sign in and continue your language journey"
+      description="Access lessons, flashcards, conversation practice, and more with a clean, polished learning dashboard."
+    >
+      <LoginForm />
+    </PublicShell>
+  );
 }
