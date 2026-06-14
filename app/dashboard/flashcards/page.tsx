@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { doc, updateDoc, increment, arrayUnion } from "firebase/firestore";
 import { useAuth } from "@/components/authprovider";
 import { useLang } from "@/components/languageprovider";
@@ -8,6 +8,7 @@ import { db } from "@/lib/firebase";
 import { flashcardDecks } from "@/lib/flashcardData";
 import { getLangInfo } from "@/lib/languages";
 import { notifyUserIfEnabled } from "@/lib/notifications";
+import { useProgress } from "@/lib/progressContext";
 import { FlashcardProgress } from "./_components/FlashcardProgress";
 import { FlashcardCard } from "./_components/FlashcardCard";
 import { FlashcardActions } from "./_components/FlashcardActions";
@@ -15,24 +16,43 @@ import { FlashcardResult } from "./_components/FlashcardResult";
 
 const SESSION_XP = 15;
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 export default function FlashcardsPage() {
   const { user } = useAuth();
   const { lang } = useLang();
-  const deck = flashcardDecks[lang];
   const langInfo = getLangInfo(lang);
+  const { markKnown, markUnknown } = useProgress();
 
-  const [index, setIndex] = useState(0);
-  const [flipped, setFlipped] = useState(false);
-  const [known, setKnown] = useState<number[]>([]);
-  const [unknown, setUnknown] = useState<number[]>([]);
-  const [done, setDone] = useState(false);
-
-  const card = deck[index];
+  const [reshuffleKey, setReshuffleKey] = useState(0);
+  const deck  = useMemo(() => shuffle(flashcardDecks[lang] ?? []), [lang, reshuffleKey]); // eslint-disable-line react-hooks/exhaustive-deps
   const total = deck.length;
 
+  const [index, setIndex]     = useState(0);
+  const [flipped, setFlipped] = useState(false);
+  const [known, setKnown]     = useState<number[]>([]);
+  const [unknown, setUnknown] = useState<number[]>([]);
+  const [done, setDone]       = useState(false);
+
+  const card = deck[index];
+
   const handleKnow = (didKnow: boolean) => {
-    if (didKnow) setKnown((p) => [...p, index]);
-    else setUnknown((p) => [...p, index]);
+    // Sync mastery to shared context — matches by front === word
+    if (didKnow) {
+      setKnown((p) => [...p, index]);
+      markKnown(lang, card.front);
+    } else {
+      setUnknown((p) => [...p, index]);
+      markUnknown(lang, card.front);
+    }
+
     if (index + 1 >= total) {
       setDone(true);
       if (user) {
@@ -58,12 +78,7 @@ export default function FlashcardsPage() {
           }),
           "notifications.items": arrayUnion(notificationItem),
         });
-
-        notifyUserIfEnabled(
-          user.uid,
-          notificationItem.title,
-          notificationItem.body
-        );
+        notifyUserIfEnabled(user.uid, notificationItem.title, notificationItem.body);
       }
     } else {
       setIndex(index + 1);
@@ -72,6 +87,7 @@ export default function FlashcardsPage() {
   };
 
   const restart = () => {
+    setReshuffleKey(k => k + 1);
     setIndex(0);
     setFlipped(false);
     setKnown([]);
@@ -80,14 +96,7 @@ export default function FlashcardsPage() {
   };
 
   if (done) {
-    return (
-      <FlashcardResult
-        total={total}
-        known={known.length}
-        unknown={unknown.length}
-        restart={restart}
-      />
-    );
+    return <FlashcardResult total={total} known={known.length} unknown={unknown.length} restart={restart} />;
   }
 
   return (
@@ -96,14 +105,8 @@ export default function FlashcardsPage() {
         <h1 className="text-2xl font-bold text-gray-800">Flashcards</h1>
         <p className="text-gray-500 text-sm mt-1">Tap the card to reveal the answer.</p>
       </div>
-
-      {/* Progress */}
       <FlashcardProgress index={index} total={total} known={known.length} unknown={unknown.length} />
-
-      {/* Flashcard */}
       <FlashcardCard langInfo={langInfo} lang={lang} card={card} flipped={flipped} setFlipped={setFlipped} />
-
-      {/* Buttons */}
       <FlashcardActions flipped={flipped} handleKnow={handleKnow} />
     </div>
   );

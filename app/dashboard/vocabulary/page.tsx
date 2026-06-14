@@ -12,6 +12,7 @@ import { useTheme } from "next-themes";
 import { useLang } from "@/components/languageprovider";
 import { vocabularyData } from "@/lib/vocabularyData";
 import { getLangInfo, LANGUAGES } from "@/lib/languages";
+import { useProgress } from "@/lib/progressContext";
 import { VocabularyFilters } from "./_components/VocabularyFilters";
 import { VocabularyWordCard } from "./_components/VocabularyWordCard";
 import SpeechButton from "@/components/SpeechButton";
@@ -26,7 +27,6 @@ const SPEECH_LANG: Record<string, string> = {
   ja: "ja-JP", es: "es-ES", fr: "fr-FR",
 };
 
-// ── Flashcard Study Mode ─────────────────────────────────────────────────────
 interface FlashcardProps {
   words: { word: string; romaji?: string; meaning: string; category: string; mastery: number }[];
   speechLang: string;
@@ -75,7 +75,6 @@ function FlashcardStudy({ words, speechLang, onFinish }: FlashcardProps) {
           <div className="h-full rounded-full transition-all" style={{ width: `${(index / words.length) * 100}%`, background: "#4a7cf7" }} />
         </div>
       </div>
-
       <div
         onClick={() => setFlipped((f) => !f)}
         className="w-full max-w-lg min-h-55 bg-white rounded-3xl shadow-lg border border-gray-100 flex flex-col items-center justify-center gap-4 cursor-pointer select-none hover:shadow-xl transition-all p-8 text-center"
@@ -94,12 +93,10 @@ function FlashcardStudy({ words, speechLang, onFinish }: FlashcardProps) {
           </>
         )}
       </div>
-
       <div className="flex items-center gap-2">
         <SpeechButton text={card.word} lang={speechLang} />
         <span className="text-xs text-gray-400">Hear pronunciation</span>
       </div>
-
       {flipped && (
         <div className="flex gap-4 w-full max-w-lg">
           <button onClick={() => answer(false)} className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-red-200 text-red-500 font-semibold text-sm hover:bg-red-50 transition cursor-pointer">
@@ -114,11 +111,17 @@ function FlashcardStudy({ words, speechLang, onFinish }: FlashcardProps) {
   );
 }
 
-// ── Main Page ────────────────────────────────────────────────────────────────
 export default function VocabularyPage() {
   const { lang, setLang } = useLang();
-  const words = vocabularyData[lang];
   const langInfo = getLangInfo(lang);
+  const { mastery: masteryMap, known: knownMap } = useProgress();
+
+  // Merge live mastery/known from context into static word list
+  const words = (vocabularyData[lang] ?? []).map(w => ({
+    ...w,
+    mastery: masteryMap[lang]?.[w.word] ?? w.mastery,
+    known:   knownMap[lang]?.[w.word]   ?? w.known,
+  }));
 
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -132,25 +135,23 @@ export default function VocabularyPage() {
   const speechLang = SPEECH_LANG[lang] ?? "en-US";
 
   const filtered = words.filter((w) => {
-    const matchCat = category === "All" || w.category === category;
+    const matchCat    = category === "All" || w.category === category;
     const matchSearch =
       w.word.toLowerCase().includes(search.toLowerCase()) ||
       w.romaji.toLowerCase().includes(search.toLowerCase()) ||
       w.meaning.toLowerCase().includes(search.toLowerCase());
     const matchFilter =
       filter === "all" ||
-      (filter === "known" && w.known) ||
+      (filter === "known"    && w.known) ||
       (filter === "learning" && !w.known);
     return matchCat && matchSearch && matchFilter;
   });
 
-  const avgMastery = Math.round(words.reduce((s, w) => s + w.mastery, 0) / words.length);
+  const avgMastery = words.length
+    ? Math.round(words.reduce((s, w) => s + w.mastery, 0) / words.length)
+    : 0;
 
-  const speechLangMap: Record<string, string> = {
-    ja: "ja-JP",
-    es: "es-ES",
-    fr: "fr-FR",
-  };
+  const speechLangMap: Record<string, string> = { ja: "ja-JP", es: "es-ES", fr: "fr-FR" };
 
   async function handleAiExample(w: { word: string; meaning: string }) {
     if (aiLoading[w.word] || aiExamples[w.word]) return;
@@ -226,9 +227,9 @@ export default function VocabularyPage() {
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4">
         {[
-          { label: "Total Words", value: words.length.toString(), icon: BookOpen, color: "#4a7cf7", bg: "#eef2ff" },
-          { label: "Mastered", value: words.filter((w) => w.mastery >= 80).length.toString(), icon: Star, color: "#34d399", bg: "#ecfdf5" },
-          { label: "Avg. Mastery", value: `${avgMastery}%`, icon: TrendingUp, color: "#f59e0b", bg: "#fffbeb" },
+          { label: "Total Words",  value: words.length.toString(),                                   icon: BookOpen,  color: "#4a7cf7", bg: "#eef2ff" },
+          { label: "Mastered",     value: words.filter((w) => w.mastery >= 80).length.toString(),    icon: Star,      color: "#34d399", bg: "#ecfdf5" },
+          { label: "Avg. Mastery", value: `${avgMastery}%`,                                          icon: TrendingUp,color: "#f59e0b", bg: "#fffbeb" },
         ].map(({ label, value, icon: Icon, color, bg }) => (
           <div key={label} className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex items-center gap-4">
             <div className="w-11 h-11 rounded-xl flex items-center justify-center" style={{ background: bg }}>
@@ -242,27 +243,17 @@ export default function VocabularyPage() {
         ))}
       </div>
 
-      {/* Flashcard mode */}
       {view === "flashcards" && (
-        <FlashcardStudy
-          words={flashcardSet}
-          speechLang={speechLang}
-          onFinish={() => setView("bank")}
-        />
+        <FlashcardStudy words={flashcardSet} speechLang={speechLang} onFinish={() => setView("bank")} />
       )}
 
-      {/* Bank mode */}
       {view === "bank" && (
         <>
           <VocabularyFilters
-            search={search}
-            setSearch={setSearch}
-            category={category}
-            setCategory={setCategory}
-            filter={filter}
-            setFilter={setFilter}
+            search={search} setSearch={setSearch}
+            category={category} setCategory={setCategory}
+            filter={filter} setFilter={setFilter}
           />
-
           <div className="grid grid-cols-3 gap-4">
             {filtered.map((w) => (
               <div key={w.word} className="flex flex-col gap-2">
@@ -288,7 +279,6 @@ export default function VocabularyPage() {
               </div>
             ))}
           </div>
-
           {filtered.length === 0 && (
             <div className="text-center py-16 text-gray-400">
               <BookOpen size={40} className="mx-auto mb-3 opacity-40" />
