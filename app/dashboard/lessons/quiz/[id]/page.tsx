@@ -9,6 +9,7 @@ import { db } from "@/lib/firebase";
 import { lessonQuizzes } from "@/lib/lessonData";
 import { type LangCode, getLangInfo, progressKey } from "@/lib/languages";
 import { notifyUserIfEnabled } from "@/lib/notifications";
+import { authedFetch } from "@/lib/authedFetch";
 
 const SEQUENCE = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
@@ -135,7 +136,7 @@ export default function QuizPage() {
           );
 
           // Fire-and-forget Prisma save
-          fetch("/api/quiz/attempt", {
+          authedFetch("/api/quiz/attempt", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
