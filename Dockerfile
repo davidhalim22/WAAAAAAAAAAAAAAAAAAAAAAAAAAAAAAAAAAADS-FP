@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+
 # ---- Builder ----
 FROM node:20-alpine AS builder
 WORKDIR /app
@@ -12,17 +13,28 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Prisma needs the schema present to generate the client during build
+# Prisma generate (needs schema only)
 RUN npx prisma generate
 
-# Build-time env vars needed by `next build` (DB not required at build time
-# since Prisma client generation only needs the schema, not a live DB)
+# Prevent Next.js telemetry
+ENV NEXT_TELEMETRY_DISABLED=1
+
+# ---- Build-time env vars (only NEXT_PUBLIC*) ----
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_API_DOCS_ENABLED
+
 ARG NEXT_PUBLIC_FIREBASE_API_KEY
 ARG NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ARG NEXT_PUBLIC_FIREBASE_PROJECT_ID
 ARG NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ARG NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ARG NEXT_PUBLIC_FIREBASE_APP_ID
+
+ARG NEXT_PUBLIC_BETTER_AUTH_URL
+
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_API_DOCS_ENABLED=$NEXT_PUBLIC_API_DOCS_ENABLED
+
 ENV NEXT_PUBLIC_FIREBASE_API_KEY=$NEXT_PUBLIC_FIREBASE_API_KEY
 ENV NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=$NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 ENV NEXT_PUBLIC_FIREBASE_PROJECT_ID=$NEXT_PUBLIC_FIREBASE_PROJECT_ID
@@ -30,33 +42,40 @@ ENV NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=$NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 ENV NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=$NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 ENV NEXT_PUBLIC_FIREBASE_APP_ID=$NEXT_PUBLIC_FIREBASE_APP_ID
 
-ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_PUBLIC_BETTER_AUTH_URL=$NEXT_PUBLIC_BETTER_AUTH_URL
+
+# Build Next.js app
 RUN npm run build
 
-# ---- Runner ----
+
+# ---- Runner (Production) ----
 FROM node:20-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Run as non-root user
+# Create non-root user
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 nextjs
 
-# Next.js standalone output contains a minimal server + node_modules
+# Required runtime files (Next.js standalone)
 COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Prisma client + schema (needed at runtime for migrations/queries)
+# Prisma runtime support (IMPORTANT)
 COPY --from=builder /app/prisma ./prisma
-COPY --from=builder /app/generated ./generated
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 
+# Switch to non-root user
 USER nextjs
 
+# CSBI / Docker port
 EXPOSE 3000
+
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
 
+# Start server
 CMD ["node", "server.js"]
