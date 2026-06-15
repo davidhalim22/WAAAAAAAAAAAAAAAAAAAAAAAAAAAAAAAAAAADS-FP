@@ -26,10 +26,10 @@ export function createMockResponse() {
   let status = 200;
   let body: unknown = null;
 
-  return {
+  const response = {
     setStatus: (s: number) => {
       status = s;
-      return this;
+      return response;
     },
     json: (data: unknown) => {
       body = data;
@@ -42,6 +42,7 @@ export function createMockResponse() {
       };
     },
   };
+  return response;
 }
 
 export function createAuthHeader(userId?: string, role?: string) {
