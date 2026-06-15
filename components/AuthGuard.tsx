@@ -17,7 +17,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-page)]">
+      <div className="min-h-screen flex items-center justify-center bg-(--bg-page)">
         <Spinner />
       </div>
     );

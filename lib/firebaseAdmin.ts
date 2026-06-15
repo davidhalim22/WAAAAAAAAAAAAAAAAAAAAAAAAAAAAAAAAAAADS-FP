@@ -37,8 +37,7 @@ export async function verifyIdToken(token: string | null | undefined) {
   try {
     const decoded = await getAuth(getAdminApp()).verifyIdToken(token);
     return decoded;
-  } catch (err) {
-    console.error("[firebaseAdmin] verifyIdToken failed:", err);
+  } catch {
     return null;
   }
 }
@@ -49,11 +48,9 @@ export async function verifyIdToken(token: string | null | undefined) {
  * Returns the authenticated uid, or null if the request is unauthenticated.
  */
 export async function getAuthenticatedUid(authorizationHeader: string | null): Promise<string | null> {
-  if (!authorizationHeader?.startsWith("Bearer ")) {
-    console.error("[firebaseAdmin] No Bearer token in Authorization header:", authorizationHeader);
-    return null;
-  }
+  if (!authorizationHeader?.startsWith("Bearer ")) return null;
   const token = authorizationHeader.slice("Bearer ".length).trim();
   const decoded = await verifyIdToken(token);
   return decoded?.uid ?? null;
 }
+  
