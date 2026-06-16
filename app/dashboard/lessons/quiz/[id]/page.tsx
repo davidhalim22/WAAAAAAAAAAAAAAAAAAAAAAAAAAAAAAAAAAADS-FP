@@ -257,7 +257,7 @@ export default function QuizPage() {
       </div>
 
           {!confirmed && q && (
-            <PracticeSentences topic={q.question} lang={lang} level="beginner" />
+            <PracticeSentences topic={title} lang={lang} level="beginner" />
           )}
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">

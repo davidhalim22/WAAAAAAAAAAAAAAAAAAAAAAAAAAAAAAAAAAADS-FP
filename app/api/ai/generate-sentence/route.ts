@@ -1,11 +1,11 @@
 import { sanitizeText, sanitizeLangCode, enforceRateLimit } from "@/lib/security";
-import { getAuthenticatedUid } from "@/lib/firebaseAdmin";
 
 const LANG_NAMES: Record<string, string> = {
   ja: "Japanese",
   en: "English",
   es: "Spanish",
   fr: "French",
+  id: "Indonesian",
 };
 
 const LEVELS = ["beginner", "intermediate", "advanced"] as const;
@@ -17,11 +17,6 @@ export async function POST(req: Request) {
       status: 429,
       headers: { "Content-Type": "application/json", "Retry-After": String(rateLimit.retryAfter ?? 60) },
     });
-  }
-
-  const requesterUid = await getAuthenticatedUid(req.headers.get("authorization"));
-  if (!requesterUid) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const { topic, lang, level } = await req.json();
@@ -38,14 +33,17 @@ export async function POST(req: Request) {
 
   const langName = LANG_NAMES[safeLang] ?? "the target language";
 
-  const systemPrompt = `You are a language learning content generator. Generate exactly 3 example sentences in ${langName} related to the topic "${safeTopic}", suitable for a ${safeLevel} learner.
+  const userPrompt = `Generate 3 short example sentences in ${langName} about "${safeTopic}" for a ${safeLevel} learner.
 
-Rules:
-- Each sentence must be natural and commonly used
-- Provide the English translation for each sentence
-- Match the vocabulary and grammar complexity to a ${safeLevel} level
-- Respond ONLY with valid JSON in this exact format, with no extra text, no markdown code fences:
-{"sentences": [{"text": "sentence in ${langName}", "translation": "English translation"}, {"text": "...", "translation": "..."}, {"text": "...", "translation": "..."}]}`;
+Format each line exactly like this (pipe separator):
+${langName} sentence | English translation
+
+Example format:
+こんにちは。 | Hello.
+元気ですか？ | How are you?
+ありがとう。 | Thank you.
+
+Output only the 3 lines, nothing else.`;
 
   try {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -56,10 +54,9 @@ Rules:
       },
       body: JSON.stringify({
         model: "llama-3.3-70b-versatile",
-        messages: [{ role: "system", content: systemPrompt }],
-        max_tokens: 400,
-        temperature: 0.7,
-        response_format: { type: "json_object" },
+        messages: [{ role: "user", content: userPrompt }],
+        max_tokens: 300,
+        temperature: 0.5,
       }),
       cache: "no-store",
     });
@@ -75,25 +72,24 @@ Rules:
     }
 
     const raw = data?.choices?.[0]?.message?.content?.trim() ?? "";
+    console.log("Groq generate-sentence raw:", raw);
 
-    let sentences: { text: string; translation: string }[] = [];
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed?.sentences)) {
-        sentences = parsed.sentences
-          .filter((s: unknown): s is Record<string, unknown> => Boolean(s) && typeof s === "object")
-          .map((s: Record<string, unknown>) => ({   
-            text: sanitizeText(s.text, 300),
-            translation: sanitizeText(s.translation, 300),
-          }))
-          .filter((s: { text: any; translation: any; }) => s.text && s.translation)
-          .slice(0, 3);
-      }
-    } catch (parseErr) {
-      console.error("Failed to parse AI sentence JSON:", parseErr, raw);
-    }
+    const sentences = raw
+      .split("\n")
+      .map((line: string) => line.replace(/^\d+[\.\)]\s*/, "").trim())
+      .filter((line: string) => line.includes("|"))
+      .map((line: string) => {
+        const pipe = line.indexOf("|");
+        return {
+          text: sanitizeText(line.slice(0, pipe).trim(), 300),
+          translation: sanitizeText(line.slice(pipe + 1).trim(), 300),
+        };
+      })
+      .filter((s: { text: string; translation: string }) => s.text && s.translation)
+      .slice(0, 3);
 
     if (sentences.length === 0) {
+      console.error("No sentences parsed. Raw:", raw);
       return Response.json(
         { error: "AI returned an unexpected response. Please try again." },
         { status: 502 }
