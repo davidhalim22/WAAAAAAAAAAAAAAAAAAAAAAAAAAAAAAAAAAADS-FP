@@ -24,7 +24,7 @@ const THEME_OPTIONS = [
 ] as const;
 
 const SPEECH_LANG: Record<string, string> = {
-  ja: "ja-JP", es: "es-ES", fr: "fr-FR",
+  ja: "ja-JP", es: "es-ES", fr: "fr-FR", id: "id-ID",
 };
 
 interface FlashcardProps {
@@ -121,7 +121,7 @@ export default function VocabularyPage() {
   const { mastery: masteryMap, known: knownMap } = useProgress();
 
   const [baseWords, setBaseWords] = useState<VocabWord[]>(vocabularyData[lang] ?? []);
-  const [exampleSentences, setExampleSentences] = useState<Record<string, string>>({});
+  const [exampleSentences, setExampleSentences] = useState<Record<string, { sentence: string; translation: string }>>({});
   const [aiLoading, setAiLoading]   = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -173,7 +173,7 @@ export default function VocabularyPage() {
     ? Math.round(words.reduce((s, w) => s + w.mastery, 0) / words.length)
     : 0;
 
-  const speechLangMap: Record<string, string> = { ja: "ja-JP", es: "es-ES", fr: "fr-FR" };
+  const speechLangMap: Record<string, string> = { ja: "ja-JP", es: "es-ES", fr: "fr-FR", id: "id-ID" };
 
   function mapCategoryToPartOfSpeech(category: string) {
     if (category.toLowerCase().includes("verb")) return "verb";
@@ -186,7 +186,7 @@ export default function VocabularyPage() {
     if (aiLoading[w.word] || exampleSentences[w.word]) return;
     setAiLoading((prev) => ({ ...prev, [w.word]: true }));
     try {
-      const res = await fetch("/api/ai/chat", {
+      const res = await fetch("/api/ai/vocabulary-example", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -196,10 +196,16 @@ export default function VocabularyPage() {
         }),
       });
       const data = await res.json();
-      setExampleSentences((prev) => ({ ...prev, [w.word]: data.sentence ?? "Could not generate example." }));
+      setExampleSentences((prev) => ({
+        ...prev,
+        [w.word]: { sentence: data.sentence ?? "Could not generate example.", translation: data.translation ?? "" },
+      }));
     } catch (error) {
       console.error("handleAiExample error:", error);
-      setExampleSentences((prev) => ({ ...prev, [w.word]: "AI unavailable. Try again later." }));
+      setExampleSentences((prev) => ({
+        ...prev,
+        [w.word]: { sentence: "AI unavailable. Try again later.", translation: "" },
+      }));
     } finally {
       setAiLoading((prev) => ({ ...prev, [w.word]: false }));
     }
@@ -294,8 +300,11 @@ export default function VocabularyPage() {
                 <VocabularyWordCard word={w} speechLang={speechLangMap[lang] || "en-US"} />
                 <div className="px-1">
                   {exampleSentences[w.word] ? (
-                    <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs text-blue-700 leading-relaxed">
-                      {exampleSentences[w.word]}
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 text-xs leading-relaxed">
+                      <p className="text-blue-700">{exampleSentences[w.word].sentence}</p>
+                      {exampleSentences[w.word].translation && (
+                        <p className="text-blue-400 mt-0.5 italic">{exampleSentences[w.word].translation}</p>
+                      )}
                     </div>
                   ) : (
                     <button
