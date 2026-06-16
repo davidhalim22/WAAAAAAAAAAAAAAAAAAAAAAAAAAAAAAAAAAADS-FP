@@ -11,6 +11,9 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+console.log("API KEY: ", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+console.log("PROJECT ID: ", process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 // Enable offline persistence so writes are queued even without network
